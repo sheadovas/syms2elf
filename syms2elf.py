@@ -31,7 +31,6 @@ USE_IDA = False
 if "IDA_SDK_VERSION" in globals():
     USE_IDA = True
 elif "radare2" in os.environ.get('PATH',''):
-    import r2pipe
     USE_R2  = True
 else:
     print("ERROR: The plugin must be run in IDA or radare2")
