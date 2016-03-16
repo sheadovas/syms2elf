@@ -7,7 +7,7 @@ Supports 32 and 64-bits file format.
 ## INSTALLATION
 
   * **IDA Pro**: Simply, copy `syms2elf.py` to the IDA's plugins folder.
-  * **radare2**: Use directly with `#!pipe python syms2elf.py`. You can also add an alias in `~/.config/radare2/radare2rc`, ex.: `$syms2elf=#!pipe python /path/sysm2elf.py`
+  * **radare2**: You can install via r2pm: `r2pm -i syms2elf`
 
 
 
@@ -24,7 +24,7 @@ Rename some functions in IDA or r2, run `syms2elf` and select the output file.
 
 ![IDA output log](https://cloud.githubusercontent.com/assets/1675387/13477862/a02aa742-e0ce-11e5-835e-3a0992a3f171.png)
 
-![r2-syms2elf](https://cloud.githubusercontent.com/assets/1675387/13614853/b98e02e4-e572-11e5-9c31-3975017ef0b0.png)
+![r2_syms2elf](https://cloud.githubusercontent.com/assets/1675387/13831270/adddfae2-ebd2-11e5-8dcd-877c9c67faed.png)
 
 After that:
 

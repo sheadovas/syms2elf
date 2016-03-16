@@ -36,6 +36,7 @@ else:
     print("ERROR: The plugin must be run in IDA or radare2")
     sys.exit(0)
 
+SHN_UNDEF = 0
 STB_GLOBAL_FUNC = 0x12
 
 class SHTypes:
@@ -317,48 +318,66 @@ class ELF:
         self.__setPhdr()
 
     def is_stripped(self):
-        if not self.has_symtab():
+        if not self.get_symtab():
             return True
-        if not self.has_strtab():
+        if not self.get_strtab():
             return True
         return False
 
-    def strip_symbols(self):
-        sections2delete = 0
+    def strip_symbols(self):        
+        sh2delete = 2
+        size2dec  = 0
+        end_shdr  = self.ElfHeader.e_shoff + (self.sizeof_sh() * self.ElfHeader.e_shnum)
 
-        if self.has_symtab():
-            sections2delete += 1
-            
-        if self.has_strtab():
-            sections2delete += 1
+        symtab = self.get_symtab()
+        strtab = self.get_strtab()
 
-        for i in range(0, sections2delete):
-            self.shdr_l.pop()
+        if not symtab or not strtab:
+            return False
 
-        self.ElfHeader.e_shnum -= sections2delete
-        
+        log("Stripping binary...")
+
+        if symtab.sh_offset < end_shdr:
+            size2dec += symtab.sh_size
+
+        if strtab.sh_offset < end_shdr:
+            size2dec += strtab.sh_size
+
+        self.ElfHeader.e_shoff -= size2dec
+        self.ElfHeader.e_shnum -= sh2delete
+
         e_shnum = self.ElfHeader.e_shnum
         e_shoff = self.ElfHeader.e_shoff
-        sz_striped = (e_shoff + (e_shnum * self.sizeof_sh()))
-        bytes_deleted = len(self.binary) - sz_striped
+        sz_striped = (e_shoff + (e_shnum * self.sizeof_sh()))        
 
-        # strip
+        if strtab.sh_offset > symtab.sh_offset:
+            self.cut_at_offset(strtab.sh_offset, strtab.sh_size)  
+            self.cut_at_offset(symtab.sh_offset, symtab.sh_size)
+        else:
+            self.cut_at_offset(symtab.sh_offset, symtab.sh_size)
+            self.cut_at_offset(strtab.sh_offset, strtab.sh_size)
+
         self.binary = self.binary[0:sz_striped]
+        self.write(0, self.ElfHeader)
+        return True
 
-    def has_symtab(self):
-        for idx, sh in enumerate(self.shdr_l):
-            if sh.sh_type == SHTypes.SHT_SYMTAB:
-                return True
-        return False
+    def get_symtab(self):
+        shstrtab = bytes(self.get_shstrtab_data())
+        for sh in self.shdr_l:
+            sh_name = shstrtab[sh.sh_name:].split("\0")[0]
+            if  sh.sh_type == SHTypes.SHT_SYMTAB and \
+                (sh.sh_name == SHN_UNDEF or sh_name == ".symtab"):
+                return sh
+        return None
 
-    def has_strtab(self):
-        end_shdr = self.ElfHeader.e_shoff + (self.sizeof_sh() * self.ElfHeader.e_shnum)
-        
-        for idx, sh in enumerate(self.shdr_l):
-            if sh.sh_type == SHTypes.SHT_STRTAB:
-                if sh.sh_offset >= end_shdr:
-                    return True
-        return False
+    def get_strtab(self):
+        shstrtab = bytes(self.get_shstrtab_data())
+        for sh in self.shdr_l:
+            sh_name = shstrtab[sh.sh_name:].split("\0")[0]
+            if  sh.sh_type == SHTypes.SHT_STRTAB and \
+                (sh.sh_name == SHN_UNDEF or sh_name == ".strtab"):
+                return sh
+        return None
 
     def getArchMode(self):
         if self.ElfHeader.e_ident[ELFFlags.EI_CLASS] == ELFFlags.ELFCLASS32: 
@@ -448,26 +467,11 @@ class ELF:
                 return idx
         return None
 
-    def disable_symtabs(self):
-        for idx, sh in enumerate(self.shdr_l):
-            if sh.sh_type == SHTypes.SHT_SYMTAB:
-                sh.sh_type = SHTypes.SHT_NULL
-
-    def disable_strtabs(self):        
-        """
-        I think is not necesary disable strtab becouse
-        elf support multiple strtabs and the refereced one 
-        will be the accessed by the debugger
-        """
-        for idx, sh in enumerate(self.shdr_l):
-            if sh.sh_type == SHTypes.SHT_STRTAB:
-                sh.sh_type = SHTypes.SHT_NULL
-
-    def get_sh_symtab(self):
-        for idx, sh in enumerate(self.shdr_l):
-            if sh.sh_type == SHTypes.SHT_SYMTAB:
-                return idx, sh
-        return None,None
+    def get_shstrtab_data(self):
+        sh = self.shdr_l[self.ElfHeader.e_shstrndx]
+        if sh.sh_type == SHTypes.SHT_STRTAB:
+            return self.binary[sh.sh_offset:sh.sh_offset+sh.sh_size]
+        return None
 
     def get_sym_at_offset(self, off):
         if self.getArchMode() == 32:
@@ -496,22 +500,6 @@ class ELF:
         elif self.getArchMode() == 64:
             size = sizeof(Elf64_Sym_LSB)
         return size
-
-    def edit_section_header(self, section):
-        sh = None
-
-        sh.sh_name      = section["name"]
-        sh.sh_type      = section["type"]
-        sh.sh_flags     = section["flags"]
-        sh.sh_addr      = section["addr"]
-        sh.sh_offset    = section["offset"]
-        sh.sh_size      = section["size"]
-        sh.sh_link      = section["link"]
-        sh.sh_info      = section["info"]
-        sh.sh_addralign = section["addralign"]
-        sh.sh_entsize   = section["entsize"]
-
-        self.binary.extend(sh)
 
     def append_section_header(self, section):
         sh = None
@@ -560,7 +548,10 @@ class ELF:
         self.binary[offset:offset+sizeof(data)] = data
 
     def expand_at_offset(self, offset, data):
-        self.binary[:] = self.binary[:offset] + data + self.binary[offset:]
+        self.binary = self.binary[:offset] + data + self.binary[offset:]
+
+    def cut_at_offset(self, offset, size):
+        self.binary = self.binary[:offset] + self.binary[offset+size:]
 
     def save(self, output):
         with open(output, 'wb') as f:
@@ -594,20 +585,20 @@ def write_symbols(input_file, output_file, symbols):
             log("No symbols to export")
             return
 
-        log("Exporting symbols to ELF...\n")
+        log("Exporting symbols to ELF...")
         bin.strip_symbols()
 
         # raw strtab
         strtab_raw = "\x00" + "\x00".join([sym.name for sym in symbols]) + "\x00"
 
         symtab = {
-            "name"      : 0, # SHN_UNDEF
+            "name"      : SHN_UNDEF,
             "type"      : SHTypes.SHT_SYMTAB,
             "flags"     : 0,
             "addr"      : 0,
             "offset"    : len(bin.binary) + (bin.sizeof_sh() * 2),
             "size"      : (len(symbols) + 1) * bin.sizeof_sym(),
-            "link"      : len(bin.shdr_l) + 1,
+            "link"      : bin.ElfHeader.e_shnum + 1, # index of SHT_STRTAB
             "info"      : 1,
             "addralign" : 4,
             "entsize"   : bin.sizeof_sym()
@@ -616,7 +607,7 @@ def write_symbols(input_file, output_file, symbols):
         off_strtab = (len(bin.binary) + (bin.sizeof_sh() * 2) + (bin.sizeof_sym() * (len(symbols) + 1)))
 
         strtab = {
-            "name"      : 0, # SHN_UNDEF
+            "name"      : SHN_UNDEF,
             "type"      : SHTypes.SHT_STRTAB,
             "flags"     : 0,
             "addr"      : 0,
@@ -629,7 +620,7 @@ def write_symbols(input_file, output_file, symbols):
         }
 
         bin.ElfHeader.e_shnum += 2
-        bin.write(0,bin.ElfHeader)
+        bin.write(0, bin.ElfHeader)
         bin.append_section_header(symtab)
         bin.append_section_header(strtab)
 
@@ -661,7 +652,7 @@ def write_symbols(input_file, output_file, symbols):
                 "shndx" : sh_idx
             }
 
-            log("%s (0x%08x)" % (s.name, s.value))
+            log("0x%08x - %s" % (s.value, s.name))
             bin.append_symbol(sym)
 
         # add symbol strings
@@ -794,7 +785,7 @@ elif USE_R2:
 
     if len(sys.argv) < 2:
         log("%s - %s" % (PLUG_NAME, VERSION))
-        log("Usage: %s <output file>" % sys.argv[0])
+        log("Usage: $syms2elf <output file>")
         sys.exit(0)
 
     file_info = r2p.cmdj("ij").get("core")
