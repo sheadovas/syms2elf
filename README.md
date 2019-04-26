@@ -23,7 +23,7 @@ test1_x86_stripped: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dy
 
 Rename some functions in IDA or r2, run `syms2elf` and select the output file.
 
-![binja_proof](https//tbd.com)
+![binja](https://user-images.githubusercontent.com/5824063/56813305-e9b83200-683c-11e9-91c9-e26fa986318e.png)
 
 ![IDA output log](https://cloud.githubusercontent.com/assets/1675387/13477862/a02aa742-e0ce-11e5-835e-3a0992a3f171.png)
 
