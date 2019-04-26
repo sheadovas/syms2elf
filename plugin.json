@@ -1,0 +1,18 @@
+{
+    "plugin": {
+      "name": "syms2elf",
+      "type": ["binaryview", "core"],
+      "api": "python2",
+      "description": "A plugin that exports binary with function names created inside Binja",
+      "longdescription": "This plugin is useful for debugging stripped binaries, simply analyze binary, create some names for functions then use this plugin to create binary woth extra debugging symbols. Now you can refer functions via their newly created names!",
+      "license": {
+        "name": "GPL v3"
+      },
+      "version": "0.3",
+      "author": "sheadovas, danigargu, sha0coder",
+      "minimumBinaryNinjaVersion": {
+        "release": "1.1.1470"
+      }
+    }
+  }
+  
