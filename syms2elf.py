@@ -27,14 +27,18 @@ from struct    import unpack
 
 USE_R2  = False
 USE_IDA = False
+USE_BINJA = False
 
 if "IDA_SDK_VERSION" in globals():
     USE_IDA = True
 elif "radare2" in os.environ.get('PATH',''):
     USE_R2  = True
+elif "bv" in locals() or "bv" in globals(): # FIXME this is not working
+    USE_BINJA = True
 else:
     print("ERROR: The plugin must be run in IDA or radare2")
-    sys.exit(0)
+#    sys.exit(0)
+USE_BINJA = True # TODO figure-out how to check if radare is present
 
 SHN_UNDEF = 0
 STB_GLOBAL_FUNC = 0x12
@@ -576,6 +580,9 @@ def log(msg=''):
 def log_r2(msg=''):
     print("%s" % msg)
 
+def log_binja(msg=''):
+    log_info("[%s] %s" % (PLUG_NAME, msg))
+
 def write_symbols(input_file, output_file, symbols):
     try:        
         with open(input_file, 'rb') as f:
@@ -708,6 +715,42 @@ def get_r2_symbols():
 
     return symbols
 
+def get_binja_symbols(bv):
+    symbols = []
+    for fnc in bv.functions:
+        addr = fnc.start
+        name = fnc.name
+        size = 0
+        #symbols.append(Symbol(name, STB_GLOBAL_FUNC, addr, size, name))
+        # FIXME figure out what is the reason of the error
+    return symbols
+
+def get_binja_arch(bv):
+    arch = None
+    if bv.view_type.lower() == 'elf':
+        if bv.platform.name == 'linux-x86':
+            arch = 'elf'
+        elif bv.platform.name == 'linux-x86_64':
+            arch = 'elf64'
+    return arch
+
+def save_binja_binary(bv):
+    arch = get_binja_arch(bv)
+    if arch is None:
+        interaction.show_message_box("ERROR", "ELF binaries are supported only")
+        return
+
+    symbols = get_binja_symbols(bv)
+    path = ('{}/{}.symbols').format(
+        os.path.dirname(bv.file.original_filename),
+        os.path.basename(bv.file.original_filename)
+    )
+    write_symbols(
+        bv.file.original_filename, 
+        interaction.get_save_filename_input('Save binary to file', default_name=path),
+        symbols
+    )
+
 if USE_IDA:
 
     from idc import *
@@ -797,3 +840,7 @@ elif USE_R2:
         log("The input file is not a ELF")
 
 
+elif USE_BINJA:
+    from binaryninja import *
+    log = log_binja
+    PluginCommand.register('[sym2elf] Export binary', 'Craft binary with symbols got from function names used in this project', save_binja_binary)

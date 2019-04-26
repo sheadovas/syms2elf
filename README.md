@@ -1,11 +1,12 @@
 # syms2elf
 
-The plugin export the symbols (for the moment only functions) recognized by IDA Pro and radare2 to the ELF symbol table. This allows us to use the power of IDA/r2 in recognizing functions (analysis, FLIRT signatures, manual creation, renaming, etc), but not be limited to the exclusive use of this tools.
+The plugin export the symbols (for the moment only functions) recognized by BinaryNinja, IDA Pro and radare2 to the ELF symbol table. This allows us to use the power of Binja/IDA/r2 in recognizing functions (analysis, FLIRT signatures, manual creation, renaming, etc), but not be limited to the exclusive use of this tools.
 
 Supports 32 and 64-bits file format.
 
 ## INSTALLATION
 
+  * **BinaryNinja**: Clone this repostory to binja's plugins folder.
   * **IDA Pro**: Simply, copy `syms2elf.py` to the IDA's plugins folder.
   * **radare2**: You can install via r2pm: `r2pm -i syms2elf`
 
@@ -21,6 +22,8 @@ test1_x86_stripped: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dy
 ```
 
 Rename some functions in IDA or r2, run `syms2elf` and select the output file.
+
+![binja_proof](https//tbd.com)
 
 ![IDA output log](https://cloud.githubusercontent.com/assets/1675387/13477862/a02aa742-e0ce-11e5-835e-3a0992a3f171.png)
 
@@ -39,6 +42,7 @@ Now, you can open it with others tools and analyzing in a more comfortable way.
 
   * Daniel García (@danigargu)
   * Jesús Olmos (@sha0coder)
+  * @sheadovas
 
 ## CONTACT 
 
