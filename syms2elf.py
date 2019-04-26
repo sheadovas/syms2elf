@@ -6,6 +6,7 @@
 #
 #  Daniel García <danigargu [at] gmail.com>
 #  Jesús Olmos   <sha0 [at] badchecksum.net>
+#  sheadovas
 #
 #  ELF parser - based on the lib of ROPgadget tool by Jonathan Salwan
 #  http://shell-storm.org/project/ROPgadget/
@@ -17,7 +18,7 @@
 #
 
 PLUG_NAME    = "syms2elf"
-VERSION      = "v0.2"
+VERSION      = "v0.3"
 
 import os
 import sys
@@ -578,7 +579,7 @@ def log_r2(msg=''):
     print("%s" % msg)
 
 def log_binja(msg=''):
-    log_info("[%s] %s" % (PLUG_NAME, msg))
+    binaryninja.log_info("[%s] %s" % (PLUG_NAME, msg))
 
 def write_symbols(input_file, output_file, symbols):
     try:        
@@ -718,7 +719,10 @@ def get_binja_symbols(bv):
         addr = fnc.start
         name = fnc.name
         size = sum(bb.length for bb in fnc)
-        symbols.append(Symbol(name, STB_GLOBAL_FUNC, addr, size, name))
+        sh_name = bv.get_sections_at(addr)[0].name
+
+        s = Symbol(name, STB_GLOBAL_FUNC, addr, size, sh_name)
+        symbols.append(s)
         # FIXME figure out what is the reason of the error
     return symbols
 
@@ -734,7 +738,9 @@ def get_binja_arch(bv):
 def save_binja_binary(bv):
     arch = get_binja_arch(bv)
     if arch is None:
-        interaction.show_message_box("ERROR", "ELF binaries are supported only")
+        binaryninja.interaction.show_message_box(
+            "ERROR, {} found!".format(bv.view_type), "The input file is not a ELF"
+        )
         return
 
     symbols = get_binja_symbols(bv)
@@ -744,7 +750,7 @@ def save_binja_binary(bv):
     )
     write_symbols(
         bv.file.original_filename, 
-        interaction.get_save_filename_input('Save binary to file', default_name=path),
+        binaryninja.interaction.get_save_filename_input('Save binary to file', default_name=path),
         symbols
     )
 
@@ -838,6 +844,6 @@ elif USE_R2:
 
 
 elif USE_BINJA:
-    from binaryninja import *
+    import binaryninja
     log = log_binja
-    PluginCommand.register('[sym2elf] Export binary', 'Craft binary with symbols got from function names used in this project', save_binja_binary)
+    binaryninja.PluginCommand.register('[sym2elf] Export binary', 'Craft binary with symbols got from function names used in this project', save_binja_binary)
