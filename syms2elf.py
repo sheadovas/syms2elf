@@ -25,20 +25,17 @@ import sys
 from ctypes    import *
 from struct    import unpack
 
-USE_R2  = False
-USE_IDA = False
-USE_BINJA = False
+USE_R2     = False
+USE_IDA    = False
+USE_BINJA  = False
 
 if "IDA_SDK_VERSION" in globals():
     USE_IDA = True
 elif "radare2" in os.environ.get('PATH',''):
     USE_R2  = True
-elif "bv" in locals() or "bv" in globals(): # FIXME this is not working
-    USE_BINJA = True
 else:
-    print("ERROR: The plugin must be run in IDA or radare2")
-#    sys.exit(0)
-USE_BINJA = True # TODO figure-out how to check if radare is present
+    # nothing found, so maybe it's binary ninja
+    USE_BINJA = True
 
 SHN_UNDEF = 0
 STB_GLOBAL_FUNC = 0x12
@@ -720,8 +717,8 @@ def get_binja_symbols(bv):
     for fnc in bv.functions:
         addr = fnc.start
         name = fnc.name
-        size = 0
-        #symbols.append(Symbol(name, STB_GLOBAL_FUNC, addr, size, name))
+        size = sum(bb.length for bb in fnc)
+        symbols.append(Symbol(name, STB_GLOBAL_FUNC, addr, size, name))
         # FIXME figure out what is the reason of the error
     return symbols
 
